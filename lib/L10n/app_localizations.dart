@@ -25,7 +25,7 @@ class AppLocalizations {
       'price': 'Price',
       'city': 'City',
       'category': 'Category',
-    }
+    }, // ✅ هذه الفاصلة كانت ناقصة
     'ar': {
       'app_title': 'دلني للإعلانات',
       'login': 'تسجيل الدخول',

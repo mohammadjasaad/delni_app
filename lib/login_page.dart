@@ -16,8 +16,8 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController emailController = TextEditingController();
-  final TextEditingController passwordController = TextEditingController();
+  final emailController = TextEditingController();
+  final passwordController = TextEditingController();
   bool isLoading = false;
 
   @override
@@ -29,42 +29,75 @@ class _LoginPageState extends State<LoginPage> {
 
   Future<void> loginUser() async {
     if (!_formKey.currentState!.validate()) return;
+
     setState(() => isLoading = true);
+    final email = emailController.text.trim();
+    final password = passwordController.text.trim();
 
-    final response = await http.post(
-      Uri.parse("http://157.245.19.128:8000/api/login"),
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: jsonEncode({
-        'email': emailController.text,
-        'password': passwordController.text,
-      }),
-    );
+    final url = Uri.parse("http://157.245.19.128:8000/api/login");
 
-    setState(() => isLoading = false);
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      final token = data['token'];
-
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('token', token);
-      await prefs.setString('email', emailController.text);
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => MainNavigation(
-            userToken: token,
-            email: emailController.text,
-          ),
-        ),
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({
+          'email': email,
+          'password': password,
+        }),
       );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('فشل تسجيل الدخول: ${response.body}')),
+
+      setState(() => isLoading = false);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final token = data['token'];
+
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('token', token);
+        await prefs.setString('email', email);
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => MainNavigation(
+              userToken: token,
+              email: email,
+            ),
+          ),
+        );
+      } else {
+        final message = jsonDecode(response.body)['message'] ?? 'فشل تسجيل الدخول';
+        showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('خطأ'),
+            content: Text(message.toString()),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('إغلاق'),
+              )
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() => isLoading = false);
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('خطأ في الاتصال'),
+          content: Text('فشل الاتصال بالخادم: $e'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('إغلاق'),
+            )
+          ],
+        ),
       );
     }
   }
@@ -93,15 +126,17 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 24),
 
-                  // 📧 البريد
+                  // 📧 البريد الإلكتروني
                   TextFormField(
                     controller: emailController,
+                    keyboardType: TextInputType.emailAddress,
                     decoration: InputDecoration(
                       labelText: t.translate('email'),
                       prefixIcon: const Icon(Icons.email),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    validator: (val) => val!.isEmpty ? '${t.translate('email')} مطلوب' : null,
+                    validator: (val) =>
+                        val!.isEmpty ? '${t.translate('email')} مطلوب' : null,
                   ),
                   const SizedBox(height: 16),
 
@@ -114,10 +149,12 @@ class _LoginPageState extends State<LoginPage> {
                       prefixIcon: const Icon(Icons.lock),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    validator: (val) => val!.isEmpty ? '${t.translate('password')} مطلوبة' : null,
+                    validator: (val) =>
+                        val!.isEmpty ? '${t.translate('password')} مطلوبة' : null,
                   ),
                   const SizedBox(height: 24),
 
+                  // 🔘 زر تسجيل الدخول
                   isLoading
                       ? const CircularProgressIndicator()
                       : SizedBox(
@@ -139,6 +176,7 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                   const SizedBox(height: 12),
 
+                  // 📝 رابط التسجيل
                   TextButton(
                     onPressed: () {
                       Navigator.push(
